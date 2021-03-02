@@ -243,7 +243,16 @@ fn _thread_start_new_thread(
             vm.state.thread_count.fetch_add(1);
             thread_to_id(&handle.thread())
         })
-        .map_err(|err| err.into_pyexception(vm))
+        .map_err(|err| {
+            #[cfg(any(not(target_arch = "wasm32"), target_os = "wasi"))]
+            {
+                err.into_pyexception(vm)
+            }
+            #[cfg(all(target_arch = "wasm32", not(target_os = "wasi")))]
+            {
+                vm.new_os_error(err.to_string())
+            }
+        })
 }
 
 fn run_thread(func: PyCallable, args: FuncArgs, vm: &VirtualMachine) {
